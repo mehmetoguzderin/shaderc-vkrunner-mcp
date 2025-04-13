@@ -5,10 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
-  
   prepare:
     name: Prepare Build Environment
     runs-on: ubuntu-latest
@@ -22,7 +21,6 @@ jobs:
           echo "repo_name=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
           echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
-  
   build-amd64:
     name: Build for amd64
     needs: prepare
@@ -61,7 +59,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  
   build-arm64:
     name: Build for arm64
     needs: prepare
@@ -103,7 +100,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  
   build-riscv64:
     name: Build for riscv64
     needs: prepare
@@ -131,7 +127,7 @@ jobs:
 
       - name: Build and push riscv64 image
         id: build_riscv64
-        continue-on-error: true 
+        continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -154,7 +150,6 @@ jobs:
     outputs:
       success: ${{ steps.status.outputs.success }}
 
-  
   build-ppc64le:
     name: Build for ppc64le
     needs: prepare
@@ -182,7 +177,7 @@ jobs:
 
       - name: Build and push ppc64le image
         id: build_ppc64le
-        continue-on-error: true 
+        continue-on-error: true
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -205,7 +200,6 @@ jobs:
     outputs:
       success: ${{ steps.status.outputs.success }}
 
-  
   create-manifest:
     name: Create Multi-Arch Manifest
     needs: [prepare, build-amd64, build-arm64, build-riscv64, build-ppc64le]
@@ -222,48 +216,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create latest manifest
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create and push multi-arch manifests
         run: |
-          
-          MANIFEST_CMD="docker manifest create ghcr.io/${{ needs.prepare.outputs.repo_name }}:latest \
-            ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-latest \
-            ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-latest"
 
-          
+          LATEST_SOURCES="ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-latest ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-latest"
+          SHA_SOURCES="ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-${{ needs.prepare.outputs.short_sha }} ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-${{ needs.prepare.outputs.short_sha }}"
+
+
           if [ "${{ needs.build-riscv64.outputs.success }}" == "true" ]; then
-            MANIFEST_CMD="$MANIFEST_CMD ghcr.io/${{ needs.prepare.outputs.repo_name }}:riscv64-latest"
+            LATEST_SOURCES="${LATEST_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:riscv64-latest"
+            SHA_SOURCES="${SHA_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:riscv64-${{ needs.prepare.outputs.short_sha }}"
           fi
 
-          
           if [ "${{ needs.build-ppc64le.outputs.success }}" == "true" ]; then
-            MANIFEST_CMD="$MANIFEST_CMD ghcr.io/${{ needs.prepare.outputs.repo_name }}:ppc64le-latest"
+            LATEST_SOURCES="${LATEST_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:ppc64le-latest"
+            SHA_SOURCES="${SHA_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:ppc64le-${{ needs.prepare.outputs.short_sha }}"
           fi
 
-          
-          eval $MANIFEST_CMD
 
-          
-          docker manifest push ghcr.io/${{ needs.prepare.outputs.repo_name }}:latest
+          echo "Creating latest manifest from: ${LATEST_SOURCES}"
+          docker buildx imagetools create --tag ghcr.io/${{ needs.prepare.outputs.repo_name }}:latest ${LATEST_SOURCES}
 
-      - name: Create SHA manifest
-        run: |
-          
-          MANIFEST_CMD="docker manifest create ghcr.io/${{ needs.prepare.outputs.repo_name }}:${{ needs.prepare.outputs.short_sha }} \
-            ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-${{ needs.prepare.outputs.short_sha }} \
-            ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-${{ needs.prepare.outputs.short_sha }}"
 
-          
-          if [ "${{ needs.build-riscv64.outputs.success }}" == "true" ]; then
-            MANIFEST_CMD="$MANIFEST_CMD ghcr.io/${{ needs.prepare.outputs.repo_name }}:riscv64-${{ needs.prepare.outputs.short_sha }}"
-          fi
-
-          
-          if [ "${{ needs.build-ppc64le.outputs.success }}" == "true" ]; then
-            MANIFEST_CMD="$MANIFEST_CMD ghcr.io/${{ needs.prepare.outputs.repo_name }}:ppc64le-${{ needs.prepare.outputs.short_sha }}"
-          fi
-
-          
-          eval $MANIFEST_CMD
-
-          
-          docker manifest push ghcr.io/${{ needs.prepare.outputs.repo_name }}:${{ needs.prepare.outputs.short_sha }}
+          echo "Creating SHA manifest from: ${SHA_SOURCES}"
+          docker buildx imagetools create --tag ghcr.io/${{ needs.prepare.outputs.repo_name }}:${{ needs.prepare.outputs.short_sha }} ${SHA_SOURCES}
