@@ -1,0 +1,38 @@
+[vertex shader passthrough]
+
+[fragment shader]
+#version 430
+
+layout(push_constant) uniform block {
+        vec4 in_color;
+        float multiplier;
+        float offsets[4];
+};
+
+layout(location = 0) out vec4 out_color;
+
+void
+main()
+{
+        out_color = in_color * multiplier;
+
+        for (int i = 0; i < offsets.length(); i++)
+                out_color[i] += offsets[i];
+}
+
+[test]
+push float 16 2.0
+push vec4 0 0.4 0.45 0.35 0.3
+# Sets the offset array. Arrays can be specified by listing multiple values
+push float 20 0.2 0.1 0.3 0.4
+draw rect -1.0 -1.0 0.66666 1.0
+
+push float 16 0.5
+push vec4 0 0.0 2.0 0.0 2.0
+push float 20 0.0 0.0 0.0 0.0
+draw rect -0.33333 -1.0 1.33333 1.0
+draw rect -1.0 0.0 2.0 1.0
+
+probe rect rgba (1, 1, 81, 122) (1, 1, 1, 1)
+probe rect rgba (85, 1, 163, 122) (0, 1, 0, 1)
+probe rect rgba (0, 126, 250, 122) (0, 1, 0, 1)

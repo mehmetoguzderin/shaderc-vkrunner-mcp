@@ -1,0 +1,23 @@
+[require]
+subgroup_size 8
+
+[compute shader]
+#version 450
+#extension GL_KHR_shader_subgroup_basic: enable
+
+layout(binding = 3) buffer block {
+    uint subgroup_size;
+};
+
+void
+main()
+{
+    subgroup_size = gl_SubgroupSize;
+}
+
+[test]
+ssbo 3 subdata uint 0 0
+
+compute 256 256 1
+
+probe ssbo uint 3 0 == 8
