@@ -1,0 +1,31 @@
+{
+    "servers": {
+        "shaderc-vkrunner-mcp-dev": {
+            "type": "stdio",
+            "command": "cargo",
+            "args": [
+                "run",
+                "--release",
+                "--manifest-path",
+                "${workspaceFolder}/Cargo.toml",
+                "--",
+                "--work-dir",
+                "${workspaceFolder}",
+            ]
+        },
+        "shaderc-vkrunner-mcp": {
+            "type": "stdio",
+            "command": "docker",
+            "args": [
+                "run",
+                "--rm",
+                "-i",
+                "-v",
+                "${workspaceFolder}:/work",
+                "shaderc-vkrunner-mcp",
+                "--work-dir",
+                "/work"
+            ]
+        }
+    }
+}

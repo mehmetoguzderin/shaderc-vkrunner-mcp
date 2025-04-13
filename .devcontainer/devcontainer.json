@@ -1,0 +1,24 @@
+{
+    "name": "shaderc-vkrunner-mcp",
+    "build": {
+        "dockerfile": "./Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "charliermarsh.ruff",
+                "eamodio.gitlens",
+                "llvm-vs-code-extensions.vscode-clangd",
+                "ms-python.python",
+                "ms-vscode.cmake-tools",
+                "rust-lang.rust-analyzer",
+                "tamasfe.even-better-toml"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        }
+    },
+    "remoteUser": "root"
+}
