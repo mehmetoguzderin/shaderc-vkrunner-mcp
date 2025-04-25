@@ -19,7 +19,7 @@ image::shaderc-vkrunner-mcp.jpg[align="center", width="90%"]
 
 == Requirements
 
-The only requirement to use `shaderc-vkrunner-mcp` is *Docker*, besides the MCP-capable AI Agent of your choice. The application is packaged as a Docker image with all necessary dependencies included.
+The only requirement to use `shaderc-vkrunner-mcp` is *Docker*, besides the MCP-capable AI Agent of your choice. The MCP server application is packaged as a Docker image with all necessary dependencies included.
 
 == Quick Start
 
