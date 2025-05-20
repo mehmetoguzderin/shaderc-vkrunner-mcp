@@ -41,7 +41,6 @@ RUN apt-get update && apt-get install -y \
     mesa-vulkan-drivers \
     libvulkan1 \
     glslang-tools \
-    glslc \
     xvfb \
     x11-utils \
     && rm -rf /var/lib/apt/lists/*
