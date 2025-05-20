@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y \
     git \
     glslang-tools \
     glslc \
+    libshaderc-dev \
+    libshaderc1 \
     imagemagick \
     libgl1-mesa-dri \
     libvulkan-dev \

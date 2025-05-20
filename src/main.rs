@@ -609,14 +609,14 @@ impl ShadercVkrunnerMcp {
             }
 
             // Create compiler and options
-            let mut compiler = Compiler::new().ok_or_else(|| {
+            let mut compiler = Compiler::new().ok().ok_or_else(|| {
                 McpError::internal_error(
                     "Failed to create shaderc compiler",
                     Some(json!({"error": "Could not instantiate shaderc compiler"})),
                 )
             })?;
             
-            let mut options = CompileOptions::new().ok_or_else(|| {
+            let mut options = CompileOptions::new().ok().ok_or_else(|| {
                 McpError::internal_error(
                     "Failed to create shaderc compile options",
                     Some(json!({"error": "Could not create compiler options"})),
@@ -663,7 +663,6 @@ impl ShadercVkrunnerMcp {
                     Some(json!({"error": e.to_string()})),
                 )
             })?;
-        }
         }
 
         let shader_test_path = "/tmp/vkrunner_test.shader_test";
