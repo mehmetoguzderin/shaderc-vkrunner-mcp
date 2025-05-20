@@ -7,7 +7,7 @@ use rmcp::{
     service::RequestContext, tool, transport::stdio,
 };
 use serde_json::json;
-use shaderc::{self, Compiler, CompileOptions, OptimizationLevel, ShaderKind};
+use shaderc::{self, CompileOptions, Compiler, OptimizationLevel, ShaderKind};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -615,25 +615,28 @@ impl ShadercVkrunnerMcp {
                     Some(json!({"error": "Could not instantiate shaderc compiler"})),
                 )
             })?;
-            
+
             let mut options = CompileOptions::new().ok().ok_or_else(|| {
                 McpError::internal_error(
                     "Failed to create shaderc compile options",
                     Some(json!({"error": "Could not create compiler options"})),
                 )
             })?;
-            
+
             // Set options equivalent to the CLI flags
-            options.set_target_env(shaderc::TargetEnv::Vulkan, shaderc::EnvVersion::Vulkan1_4 as u32);
+            options.set_target_env(
+                shaderc::TargetEnv::Vulkan,
+                shaderc::EnvVersion::Vulkan1_4 as u32,
+            );
             options.set_optimization_level(OptimizationLevel::Performance);
             options.set_generate_debug_info();
-            
+
             // Compile to SPIR-V assembly
             let artifact = match compiler.compile_into_spirv_assembly(
                 &req.source,
                 shader_kind,
                 "shader.glsl", // source name for error reporting
-                "main", // entry point
+                "main",        // entry point
                 Some(&options),
             ) {
                 Ok(artifact) => artifact,
@@ -646,9 +649,9 @@ impl ShadercVkrunnerMcp {
                         ShaderStage::Geom => "Geometry",
                         ShaderStage::Comp => "Compute",
                     };
-                    
+
                     let error_details = format!("{}", e);
-                    
+
                     return Ok(CallToolResult::success(vec![Content::text(format!(
                         "Shader compilation failed for {} shader:\n\nError:\n{}\n\nShader Source:\n{}\n",
                         stage_name, error_details, req.source
@@ -656,8 +659,14 @@ impl ShadercVkrunnerMcp {
                 }
             };
 
-            // Write the compiled SPIR-V assembly to the output file
-            std::fs::write(&tmp_output_path, artifact.as_text()).map_err(|e| {
+            // Write the compiled SPIR-V assembly to the output file, filtering unsupported lines
+            let spv_text = artifact.as_text();
+            let filtered_spv = spv_text
+                .lines()
+                .filter(|l| !l.trim_start().starts_with("OpModuleProcessed"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            std::fs::write(&tmp_output_path, filtered_spv).map_err(|e| {
                 McpError::internal_error(
                     "Failed to write compiled shader to file",
                     Some(json!({"error": e.to_string()})),
