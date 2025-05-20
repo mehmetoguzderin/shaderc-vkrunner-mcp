@@ -7,6 +7,7 @@ use rmcp::{
     service::RequestContext, tool, transport::stdio,
 };
 use serde_json::json;
+use shaderc::{self, CompileOptions, Compiler, OptimizationLevel, ShaderKind};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -567,13 +568,22 @@ impl ShadercVkrunnerMcp {
         use std::fs::File;
         use std::io::{Read, Write};
         use std::path::Path;
-        use std::process::{Command, Stdio};
+        use std::process::{Command, Stdio}; // Still needed for vkrunner
 
         fn io_err(e: std::io::Error) -> McpError {
             McpError::internal_error("IO operation failed", Some(json!({"error": e.to_string()})))
         }
 
         for req in &request.requests {
+            let shader_kind = match req.stage {
+                ShaderStage::Vert => ShaderKind::Vertex,
+                ShaderStage::Frag => ShaderKind::Fragment,
+                ShaderStage::Tesc => ShaderKind::TessControl,
+                ShaderStage::Tese => ShaderKind::TessEvaluation,
+                ShaderStage::Geom => ShaderKind::Geometry,
+                ShaderStage::Comp => ShaderKind::Compute,
+            };
+
             let stage_flag = match req.stage {
                 ShaderStage::Vert => "vert",
                 ShaderStage::Frag => "frag",
@@ -598,48 +608,70 @@ impl ShadercVkrunnerMcp {
                 })?;
             }
 
-            let mut child = Command::new("glslc")
-                .arg("--target-env=vulkan1.4")
-                .arg(format!("-fshader-stage={stage_flag}"))
-                .arg("-O")
-                .arg("-S")
-                .arg("-o")
-                .arg(&tmp_output_path)
-                .arg("-")
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| {
-                    McpError::internal_error(
-                        "Failed to spawn glslc process",
-                        Some(json!({"error": e.to_string()})),
-                    )
-                })?;
-
-            if let Some(mut stdin) = child.stdin.take() {
-                stdin.write_all(req.source.as_bytes()).map_err(|e| {
-                    McpError::internal_error(
-                        "Failed to write to glslc stdin",
-                        Some(json!({"error": e.to_string()})),
-                    )
-                })?;
-            }
-
-            let output = child.wait_with_output().map_err(|e| {
+            // Create compiler and options
+            let mut compiler = Compiler::new().ok().ok_or_else(|| {
                 McpError::internal_error(
-                    "Failed to wait for glslc process",
-                    Some(json!({"error": e.to_string()})),
+                    "Failed to create shaderc compiler",
+                    Some(json!({"error": "Could not instantiate shaderc compiler"})),
                 )
             })?;
 
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                return Ok(CallToolResult::success(vec![Content::text(format!(
-                    "Shader compilation failed:\n\nStdout:\n{stdout}\n\nStderr:\n{stderr}"
-                ))]));
-            }
+            let mut options = CompileOptions::new().ok().ok_or_else(|| {
+                McpError::internal_error(
+                    "Failed to create shaderc compile options",
+                    Some(json!({"error": "Could not create compiler options"})),
+                )
+            })?;
+
+            // Set options equivalent to the CLI flags
+            options.set_target_env(
+                shaderc::TargetEnv::Vulkan,
+                shaderc::EnvVersion::Vulkan1_4 as u32,
+            );
+            options.set_optimization_level(OptimizationLevel::Performance);
+            options.set_generate_debug_info();
+
+            // Compile to SPIR-V assembly
+            let artifact = match compiler.compile_into_spirv_assembly(
+                &req.source,
+                shader_kind,
+                "shader.glsl", // source name for error reporting
+                "main",        // entry point
+                Some(&options),
+            ) {
+                Ok(artifact) => artifact,
+                Err(e) => {
+                    let stage_name = match req.stage {
+                        ShaderStage::Vert => "Vertex",
+                        ShaderStage::Frag => "Fragment",
+                        ShaderStage::Tesc => "Tessellation Control",
+                        ShaderStage::Tese => "Tessellation Evaluation",
+                        ShaderStage::Geom => "Geometry",
+                        ShaderStage::Comp => "Compute",
+                    };
+
+                    let error_details = format!("{}", e);
+
+                    return Ok(CallToolResult::success(vec![Content::text(format!(
+                        "Shader compilation failed for {} shader:\n\nError:\n{}\n\nShader Source:\n{}\n",
+                        stage_name, error_details, req.source
+                    ))]));
+                }
+            };
+
+            // Write the compiled SPIR-V assembly to the output file, filtering unsupported lines
+            let spv_text = artifact.as_text();
+            let filtered_spv = spv_text
+                .lines()
+                .filter(|l| !l.trim_start().starts_with("OpModuleProcessed"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            std::fs::write(&tmp_output_path, filtered_spv).map_err(|e| {
+                McpError::internal_error(
+                    "Failed to write compiled shader to file",
+                    Some(json!({"error": e.to_string()})),
+                )
+            })?;
         }
 
         let shader_test_path = "/tmp/vkrunner_test.shader_test";
@@ -1180,9 +1212,13 @@ impl ShadercVkrunnerMcp {
         let stderr = String::from_utf8_lossy(&vkrunner_output.stderr).to_string();
 
         let mut result_message = if vkrunner_output.status.success() {
-            format!("VkRunner execution successful.\n\nOutput:\n{stdout}\n\n")
+            format!(
+                "Shader compilation successful using shaderc-rs.\nVkRunner execution successful.\n\nOutput:\n{stdout}\n\n"
+            )
         } else {
-            format!("VkRunner execution failed.\n\nOutput:\n{stdout}\n\nError:\n{stderr}\n\n",)
+            format!(
+                "Shader compilation successful using shaderc-rs.\nVkRunner execution failed.\n\nOutput:\n{stdout}\n\nError:\n{stderr}\n\n",
+            )
         };
 
         if let Some(output_path) = &request.output_path {

@@ -10,7 +10,7 @@
                 "${workspaceFolder}/Cargo.toml",
                 "--",
                 "--work-dir",
-                "${workspaceFolder}",
+                "${workspaceFolder}"
             ]
         },
         "shaderc-vkrunner-mcp": {
