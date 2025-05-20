@@ -1,0 +1,32 @@
+include:
+- project: 'freedesktop/ci-templates'
+  ref: ea3f77641d91765396beba192b8defd3085fa343
+  file: '/templates/fedora.yml'
+
+stages:
+  - prep
+  - test
+
+variables:
+  FDO_UPSTREAM_REPO: mesa/vkrunner
+
+.vkrunner.fedora:42:
+  variables:
+    FDO_DISTRIBUTION_VERSION: 42
+    FDO_DISTRIBUTION_TAG: '2025-04-17.1'
+
+build-fedora-container:
+  extends:
+  - .fdo.container-build@fedora
+  - .vkrunner.fedora:42
+  stage: prep
+  variables:
+    FDO_DISTRIBUTION_PACKAGES: "cargo bindgen-cli glslang"
+
+cargo-test:
+  extends:
+  - .fdo.distribution-image@fedora
+  - .vkrunner.fedora:42
+  stage: test
+  script:
+    - cargo test

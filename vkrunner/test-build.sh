@@ -41,30 +41,5 @@ fi
 "$install_dir/bin/vkrunner" $device_id \
     "$build_dir/precompiled-examples/"*.shader_test
 
-cargo cinstall \
-      --target-dir "$build_dir" \
-      --prefix "$install_dir" \
-      --library-type=staticlib
-
-# Extract the example from the README. This will test both that the
-# example is still correct and that all of the necessary public
-# headers are properly installed.
-
-example_dir="$build_dir/example"
-mkdir -p "$example_dir"
-
-sed -rn -e '/^```C\s*$/,/^```\s*$/! b ; s/^```.*// ; p' \
-    < "$src_dir/README.md" \
-    > "$example_dir/myrunner.c"
-
-export PKG_CONFIG_PATH=$(find "$install_dir" -name pkgconfig)
-
-gcc -Wall -Werror -o "$example_dir/myrunner" "$example_dir/myrunner.c" \
-    $(pkg-config vkrunner --cflags --libs)
-
-for script in "$src_dir/examples/"*.shader_test; do
-    "$example_dir/myrunner" "$script"
-done
-
 echo
 echo "Test build succeeded."

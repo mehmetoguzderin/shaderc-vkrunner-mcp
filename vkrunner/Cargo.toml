@@ -10,29 +10,5 @@ default-run = "vkrunner"
 [lib]
 path = "vkrunner/lib.rs"
 
-[features]
-capi = []
-
 [build-dependencies]
 bindgen = "0.66.1"
-
-[package.metadata.capi.header]
-# Don’t generate any headers, we already have hand-written ones
-generation = false
-
-[package.metadata.capi.pkg_config]
-strip_include_path_components = 1
-
-[package.metadata.capi.install.include]
-asset = [
-   { from = "vkrunner/vr-callback.h", to = "vkrunner" },
-   { from = "vkrunner/vr-config.h", to = "vkrunner" },
-   { from = "vkrunner/vr-executor.h", to = "vkrunner" },
-   { from = "vkrunner/vr-format.h", to = "vkrunner" },
-   { from = "vkrunner/vr-inspect.h", to = "vkrunner" },
-   { from = "vkrunner/vr-result.h", to = "vkrunner" },
-   { from = "vkrunner/vr-script.h", to = "vkrunner" },
-   { from = "vkrunner/vr-shader-stage.h", to = "vkrunner" },
-   { from = "vkrunner/vr-source.h", to = "vkrunner" },
-   { from = "vkrunner/vkrunner.h", to = "vkrunner" },
-]

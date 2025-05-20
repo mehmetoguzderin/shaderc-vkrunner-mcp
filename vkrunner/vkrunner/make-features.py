@@ -46,7 +46,7 @@ EXTENSIONS = [
     },
     "EXT_BLEND_OPERATION_ADVANCED",
     "EXT_BUFFER_DEVICE_ADDRESS",
-    "NV_COMPUTE_SHADER_DERIVATIVES",
+    "KHR_COMPUTE_SHADER_DERIVATIVES",
     "EXT_CONDITIONAL_RENDERING",
     "NV_CORNER_SAMPLED_IMAGE",
     "EXT_DESCRIPTOR_INDEXING",
@@ -133,8 +133,8 @@ def struct_to_regexp(struct):
     md = re.match(r'(.*?)([A-Z]+)$', struct)
     return re.compile(r'^typedef\s+struct\s+' +
                       re.escape(md.group(1)) +
-                      r'(?:' + re.escape(md.group(2)) + ')?\s+' +
-                      '{\s*$',
+                      r'(?:' + re.escape(md.group(2)) + r')?\s+' +
+                      r'{\s*$',
                       flags=re.MULTILINE)
 
 

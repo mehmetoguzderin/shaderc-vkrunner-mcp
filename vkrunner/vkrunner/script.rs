@@ -27,7 +27,7 @@ use crate::source::Source;
 use crate::stream::{Stream, StreamError};
 use crate::tolerance::Tolerance;
 use crate::pipeline_key;
-use crate::shader_stage::{Stage, N_STAGES, ALL_STAGES};
+use crate::shader_stage::{Stage, N_STAGES};
 use crate::slot;
 use crate::requirements::{Requirements, CooperativeMatrix};
 use crate::window_format::WindowFormat;
@@ -38,7 +38,6 @@ use crate::vk;
 use crate::config::Config;
 use std::cell::RefCell;
 use std::fmt;
-use std::ffi::{c_int, c_char, c_void};
 
 #[derive(Debug, Clone)]
 pub enum Shader {
@@ -410,7 +409,9 @@ fn trim_line_or_skip(line: &str) -> Option<&str> {
     }
 }
 
-static NAMES_TO_VK_COMPONENT_TYPE: [(&'static str, vk::VkComponentTypeKHR); 22] = [
+static NAMES_TO_VK_COMPONENT_TYPE: [(&'static str, vk::VkComponentTypeKHR); 24] = [
+    ("bfloat16", vk::VK_COMPONENT_TYPE_BFLOAT16_KHR),
+    ("bfloat16_t", vk::VK_COMPONENT_TYPE_BFLOAT16_KHR),
     ("double", vk::VK_COMPONENT_TYPE_FLOAT64_KHR),
     ("float", vk::VK_COMPONENT_TYPE_FLOAT32_KHR),
     ("float16", vk::VK_COMPONENT_TYPE_FLOAT16_KHR),
@@ -2132,116 +2133,6 @@ impl Script {
     }
 }
 
-#[repr(C)]
-pub enum SourceType {
-    Glsl,
-    Spirv,
-    Binary,
-}
-
-#[repr(C)]
-pub struct ShaderCode {
-    source_type: SourceType,
-    stage: Stage,
-    source_length: usize,
-    source: *const c_char,
-}
-
-#[no_mangle]
-pub extern "C" fn vr_script_get_shaders(
-    script: &Script,
-    _source: &Source,
-    mut shader_code: *mut ShaderCode,
-) -> c_int {
-    extern "C" {
-        fn malloc(size: usize) -> *mut c_void;
-    }
-
-    let mut n_shaders = 0;
-
-    for &stage in ALL_STAGES.iter() {
-        for shader in script.shaders(stage) {
-            let (source_type, ptr, length) = match shader {
-                Shader::Glsl(source) => {
-                    (
-                        SourceType::Glsl,
-                        source.as_ptr().cast(),
-                        source.len(),
-                    )
-                },
-                Shader::Spirv(source) => {
-                    (
-                        SourceType::Spirv,
-                        source.as_ptr().cast(),
-                        source.len(),
-                    )
-                },
-                Shader::Binary(data) => {
-                    (
-                        SourceType::Binary,
-                        data.as_ptr().cast(),
-                        data.len() * std::mem::size_of::<u32>(),
-                    )
-                },
-            };
-
-            unsafe {
-                (*shader_code).source_type = source_type;
-                (*shader_code).stage = stage;
-                (*shader_code).source = malloc(length).cast();
-                std::ptr::copy_nonoverlapping(
-                    ptr as *const c_char,
-                    (*shader_code).source as *mut c_char,
-                    length,
-                );
-                (*shader_code).source_length = length;
-
-                // SAFTEY: This caller is supposed to have provided an
-                // array big enough to store all of the shaders so
-                // this should be within the same allocation.
-                shader_code = shader_code.add(1);
-            }
-        }
-
-        n_shaders += script.shaders(stage).len();
-    }
-
-    n_shaders as c_int
-}
-
-#[no_mangle]
-pub extern "C" fn vr_script_get_num_shaders(script: &Script) -> c_int
-{
-    script.stages.iter().map(|stage| stage.len()).sum::<usize>() as c_int
-}
-
-#[no_mangle]
-pub extern "C" fn vr_script_replace_shaders_stage_binary(
-    script: &mut Script,
-    stage: Stage,
-    source_length: usize,
-    source: *const u32,
-) {
-    script.replace_shaders_stage_binary(
-        stage,
-        // SAFETY: The caller is supposed to provide a valid array
-        unsafe { std::slice::from_raw_parts(source, source_length) },
-    );
-}
-
-#[no_mangle]
-pub extern "C" fn vr_script_load(
-    config: &RefCell<Config>,
-    source: &Source
-) -> Option<Box<Script>> {
-    Script::load(&config.borrow(), source).map(|script| Box::new(script))
-}
-
-#[no_mangle]
-pub extern "C" fn vr_script_free(script: *mut Script) {
-    unsafe { drop(Box::from_raw(script)); };
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -3678,7 +3569,7 @@ mod test {
 
         for &ext in reqs.c_extensions().iter() {
             unsafe {
-                let ext_c = CStr::from_ptr(ext as *const c_char);
+                let ext_c = CStr::from_ptr(ext as *const std::ffi::c_char);
                 let ext = ext_c.to_str().unwrap();
                 assert!(extensions.remove(ext));
             }

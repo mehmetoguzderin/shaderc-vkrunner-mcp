@@ -26,7 +26,12 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_snake_case)]
 
+mod bindings {
+#![allow(unused_imports)]
 include!(concat!(env!("OUT_DIR"), "/vulkan_bindings.rs"));
+}
+
+pub use self::bindings::*;
 
 /// Function to return a value that can be used where the Vulkan
 /// documentation specifies that `VK_NULL_HANDLE` can be used.

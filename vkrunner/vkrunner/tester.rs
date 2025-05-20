@@ -2096,6 +2096,9 @@ mod test {
         } = test_data.fake_vulkan.get_freed_handle(descriptor_sets[0]).data
         else { unreachable!("bad handle"); };
 
+        let descriptor_type = bindings[&5].descriptor_type;
+        assert_eq!(descriptor_type, vk::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
         let buffer_handle = bindings[&5].info.buffer;
 
         let HandleType::Buffer {

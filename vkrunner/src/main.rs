@@ -439,7 +439,7 @@ fn parse_options<I>(
 }
 
 impl<'a> InspectData<'a> {
-    fn new(options: &'a Options) -> InspectData {
+    fn new(options: &'a Options) -> InspectData<'a> {
         InspectData {
             image_filename: match options.values.get(IMAGE_OPTION) {
                 Some(ArgumentValue::Filename(filename)) => {
