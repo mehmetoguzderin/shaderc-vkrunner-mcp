@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     git \
     glslang-tools \
     glslc \
+    jq \
     libshaderc-dev \
     libshaderc1 \
     imagemagick \

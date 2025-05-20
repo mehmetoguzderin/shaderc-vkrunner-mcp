@@ -32,6 +32,7 @@ schemars = { version = "0.8", optional = true }
 image = "0.25.6"
 clap = { version = "4.5.36", features = ["derive"] }
 shaderc = "0.9.1"
+vkrunner = { path = "./vkrunner", features = [] }
 
 [dev-dependencies]
 tokio-stream = { version = "0.1" }
