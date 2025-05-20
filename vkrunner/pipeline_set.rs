@@ -852,8 +852,8 @@ impl PipelineVec {
 
             stage: vk::VkPipelineShaderStageCreateInfo {
                 sType: vk::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                pNext: if let Some(rss_info) = rss_info {
-                    ptr::addr_of!(rss_info).cast()
+                pNext: if let Some(ref rss_info) = rss_info {
+                    ptr::addr_of!(*rss_info).cast()
                 } else {
                     ptr::null_mut()
                 },
@@ -1055,6 +1055,22 @@ mod test {
             }
         }
 
+        fn compute_create_info(
+            &mut self,
+            pipeline_num: usize,
+        ) -> vk::VkComputePipelineCreateInfo {
+            let pipeline = self.pipeline_set.pipelines.handles[pipeline_num];
+
+            match &self.fake_vulkan.get_handle(pipeline).data {
+                HandleType::Pipeline(PipelineCreateInfo::Compute(info)) => {
+                    info.clone()
+                },
+                handle @ _ => {
+                    unreachable!("unexpected handle type: {:?}", handle)
+                },
+            }
+        }
+
         fn shader_module_code(
             &mut self,
             stage: shader_stage::Stage,
@@ -1133,6 +1149,9 @@ mod test {
         ));
 
         assert_eq!(test_data.pipeline_set.pipelines().len(), 3);
+
+        let compute_create_info = test_data.compute_create_info(0);
+        assert_eq!(compute_create_info.sType, vk::VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO);
 
         let create_data = test_data.graphics_create_info(1);
         let create_info = &create_data.create_info;
@@ -1254,6 +1273,7 @@ mod test {
         );
 
         let layout = test_data.pipeline_layout_create_info();
+        assert_eq!(layout.create_info.sType, vk::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
         assert_eq!(layout.push_constant_ranges.len(), 1);
         assert_eq!(
             layout.push_constant_ranges[0].stageFlags,

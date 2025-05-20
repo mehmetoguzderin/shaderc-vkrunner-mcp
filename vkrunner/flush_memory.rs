@@ -31,7 +31,7 @@ pub struct Error(vk::VkResult);
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "vkFlushMappedMemoryRanges failed")
+        write!(f, "vkFlushMappedMemoryRanges failed: {:?}", self.0)
     }
 }
 
@@ -250,7 +250,7 @@ mod test {
             24, // size
         ).unwrap_err();
 
-        assert_eq!(error.to_string(), "vkFlushMappedMemoryRanges failed");
+        assert!(error.to_string().starts_with("vkFlushMappedMemoryRanges failed"));
         assert_eq!(error.0, vk::VK_ERROR_UNKNOWN);
     }
 }

@@ -27,7 +27,6 @@ use crate::half_float;
 use crate::vk;
 use std::convert::TryInto;
 use std::num::NonZeroUsize;
-use std::slice;
 
 #[derive(Debug)]
 pub struct Format {
@@ -392,22 +391,6 @@ fn extract_u24(bytes: &[u8]) -> u32 {
     }
 
     value
-}
-
-#[no_mangle]
-pub extern "C" fn vr_format_get_size(format: &Format) -> i32 {
-    format.size() as i32
-}
-
-#[no_mangle]
-pub extern "C" fn vr_format_load_pixel(
-    format: &Format,
-    source: *const u8,
-    pixel: *mut f64,
-) {
-    let source = unsafe { slice::from_raw_parts(source, format.size()) };
-    let pixel = unsafe { slice::from_raw_parts_mut(pixel, 4) };
-    pixel.copy_from_slice(&format.load_pixel(source));
 }
 
 #[cfg(test)]

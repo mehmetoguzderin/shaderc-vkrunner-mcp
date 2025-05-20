@@ -24,7 +24,7 @@
 
 use crate::logger::{self, Logger};
 use crate::inspect;
-use std::ffi::{c_void, c_int};
+use std::ffi::c_void;
 use std::ptr;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -134,61 +134,6 @@ impl Config {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn vr_config_new() -> *const RefCell<Config> {
-    Rc::into_raw(Rc::new(RefCell::new(Config::new())))
-}
-
-#[no_mangle]
-pub extern "C" fn vr_config_free(config: *const RefCell<Config>)
-{
-    unsafe { Rc::from_raw(config) };
-}
-
-#[no_mangle]
-pub extern "C" fn vr_config_set_show_disassembly(
-    config: &RefCell<Config>,
-    show_disassembly: bool,
-) {
-    config.borrow_mut().set_show_disassembly(show_disassembly);
-}
-
-#[no_mangle]
-pub extern "C" fn vr_config_set_user_data(
-    config: &RefCell<Config>,
-    user_data: *mut c_void,
-) {
-    config.borrow_mut().set_user_data(user_data);
-}
-
-#[no_mangle]
-pub extern "C" fn vr_config_set_error_cb(
-    config: &RefCell<Config>,
-    error_cb: Option<ErrorCallback>,
-) {
-    config.borrow_mut().set_error_cb(error_cb);
-}
-
-#[no_mangle]
-pub extern "C" fn vr_config_set_inspect_cb(
-    config: &RefCell<Config>,
-    inspect_cb: Option<inspect::Callback>,
-) {
-    config.borrow_mut().set_inspect_cb(inspect_cb);
-}
-
-#[no_mangle]
-pub extern "C" fn vr_config_set_device_id(
-    config: &RefCell<Config>,
-    device_id: c_int,
-) {
-    config.borrow_mut().set_device_id(if device_id < 0 {
-        None
-    } else {
-        Some(device_id as usize)
-    });
-}
-
 // Need to implement this manually because the derive macro can’t
 // handle Cells
 impl fmt::Debug for Config {
@@ -198,47 +143,5 @@ impl fmt::Debug for Config {
             .field("device_id", &self.device_id)
             .field("user_data", &self.user_data)
             .finish()
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use std::ffi::c_char;
-    use std::fmt::Write;
-
-    #[test]
-    fn logger() {
-        extern "C" fn logger_cb(
-            _message: *const c_char,
-            user_data: *mut c_void
-        ) {
-            let flag: *mut bool = user_data.cast();
-
-            unsafe { *flag = true };
-        }
-
-        let mut flag = false;
-
-        let config_ptr = vr_config_new();
-        let config = unsafe { &*config_ptr };
-
-        vr_config_set_error_cb(config, Some(logger_cb));
-        vr_config_set_user_data(config, ptr::addr_of_mut!(flag).cast());
-
-        let logger = config.borrow().logger();
-
-        logger.borrow_mut().write_str("test\n").unwrap();
-
-        assert!(flag);
-
-        assert!(Rc::ptr_eq(&logger, &config.borrow().logger()));
-
-        vr_config_set_error_cb(config, None);
-        // When the callback or user_data changes a new logger should
-        // be created
-        assert!(!Rc::ptr_eq(&logger, &config.borrow().logger()));
-
-        vr_config_free(config_ptr);
     }
 }

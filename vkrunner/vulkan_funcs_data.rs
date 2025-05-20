@@ -31,6 +31,7 @@ pub struct Instance {
 
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
+#[allow(dead_code)]
 pub struct Device {
     pub vkAllocateCommandBuffers: vk::PFN_vkAllocateCommandBuffers,
     pub vkAllocateDescriptorSets: vk::PFN_vkAllocateDescriptorSets,
@@ -168,6 +169,7 @@ impl Instance {
     }
 }
 
+#[allow(dead_code)]
 impl Device {
     pub fn new(instance: &Instance, device: vk::VkDevice) -> Device {
         Device {

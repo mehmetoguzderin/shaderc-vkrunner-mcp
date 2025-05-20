@@ -29,19 +29,6 @@ The vkrunner binary can be installed like so:
 cargo install --path . --root <install_root>
 ```
 
-If you also want to use the static library from C, you can use the
-cargo-c applet. First make sure the applet is installed like so:
-
-```
-cargo install cargo-c
-```
-
-Then install the headers and the library like so:
-
-```
-cargo cinstall --destdir=${D} --prefix=/usr --library-type=staticlib
-```
-
 ## Running
 
 VkRunner requires glslangValidator to compile GLSL to SPIR-V. It is
@@ -475,61 +462,3 @@ If glslangValidator and spirv-as are not in the path, you can indicate
 where the binaries are with the following command line arguments:
 
     ./precompile-script.py -o compiled-examples examples/*.shader_test -g PATH_GLSLANG/glslangValidator -s PATH_SPIRV_AS/spirv-as
-
-## Library
-
-VkRunner can alternatively be used as a library to integrate it into
-another test suite. Running `cargo cinstall` installs a library, a
-header and a pkg-config file to configure it. An example to use it
-could be as follows:
-
-```C
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-
-#include <vkrunner/vkrunner.h>
-
-int
-main(int argc, char **argv)
-{
-        if (argc != 2) {
-                fprintf(stderr, "usage: %s <script>\n", argv[0]);
-                return EXIT_FAILURE;
-        }
-
-        /* Create a source representing the file */
-        struct vr_source *source = vr_source_from_file(argv[1]);
-
-        /* The templating mechanism can be used to replace tokens in
-         * the test scripts
-         */
-        char current_time[64];
-        snprintf(current_time, sizeof current_time, "%i", (int) time(NULL));
-        vr_source_add_token_replacement(source,
-                                        "@CURRENT_TIME@",
-                                        current_time);
-
-        /* This executes all of the script and returns a result. The
-         * result will be either VR_RESULT_FAIL, VR_RESULT_SKIP or
-         * VR_RESULT_PASS.
-         */
-        struct vr_config *config = vr_config_new();
-        struct vr_executor *executor = vr_executor_new(config);
-        enum vr_result result = vr_executor_execute(executor, source);
-        vr_executor_free(executor);
-        vr_config_free(config);
-
-        vr_source_free(source);
-
-        printf("Test status is: %s\n",
-               vr_result_to_string(result));
-
-        return result == VR_RESULT_FAIL ? EXIT_FAILURE : EXIT_SUCCESS;
-}
-```
-
-This can by compiled using a command like the following after running
-`cargo cinstall` on VkRunner:
-
-    cc -o myrunner myrunner.c $(pkg-config --cflags --libs vkrunner)

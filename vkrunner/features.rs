@@ -49,9 +49,9 @@ static EXTENSIONS: [Extension; 29] = [
         ],
     },
     Extension {
-        name_bytes: vk::VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME,
-        struct_size: mem::size_of::<vk::VkPhysicalDeviceComputeShaderDerivativesFeaturesNV>(),
-        struct_type: vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV,
+        name_bytes: vk::VK_KHR_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME,
+        struct_size: mem::size_of::<vk::VkPhysicalDeviceComputeShaderDerivativesFeaturesKHR>(),
+        struct_type: vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_KHR,
         features: &[
             "computeDerivativeGroupQuads",
             "computeDerivativeGroupLinear",

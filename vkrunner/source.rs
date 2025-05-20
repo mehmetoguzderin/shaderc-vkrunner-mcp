@@ -22,7 +22,6 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-use std::ffi::{c_char, CStr};
 use std::path::PathBuf;
 
 /// Struct representing the requested source for the data of a
@@ -97,44 +96,6 @@ impl Source {
     pub(crate) fn data(&self) -> &Data {
         &self.data
     }
-}
-
-#[no_mangle]
-pub extern "C" fn vr_source_from_string(
-    string: *const c_char,
-) -> *mut Source {
-    let string = unsafe { CStr::from_ptr(string).to_str().unwrap().to_owned() };
-    Box::into_raw(Box::new(Source::from_string(string)))
-}
-
-#[no_mangle]
-pub extern "C" fn vr_source_from_file(
-    filename: *const c_char,
-) -> *mut Source {
-    let filename = unsafe {
-        CStr::from_ptr(filename).to_str().unwrap().to_owned().into()
-    };
-    Box::into_raw(Box::new(Source::from_file(filename)))
-}
-
-#[no_mangle]
-pub extern "C" fn vr_source_add_token_replacement(
-    source: &mut Source,
-    token: *const c_char,
-    replacement: *const c_char,
-) {
-    let token = unsafe {
-        CStr::from_ptr(token).to_str().unwrap().to_owned()
-    };
-    let replacement = unsafe {
-        CStr::from_ptr(replacement).to_str().unwrap().to_owned()
-    };
-    source.add_token_replacement(token, replacement);
-}
-
-#[no_mangle]
-pub extern "C" fn vr_source_free(source: *mut Source) {
-    unsafe { drop(Box::from_raw(source)); };
 }
 
 #[cfg(test)]

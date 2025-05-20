@@ -23,7 +23,6 @@
 // DEALINGS IN THE SOFTWARE.
 
 use std::fmt;
-use std::ffi::c_char;
 
 /// Enum representing the possible results of a test.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -81,23 +80,9 @@ impl fmt::Display for Result {
     }
 }
 
-/// These two wrappers are permanent because they form part of the
-/// public API.
-
-#[no_mangle]
-pub extern "C" fn vr_result_merge(a: Result, b: Result) -> Result {
-    a.merge(b)
-}
-
-#[no_mangle]
-pub extern "C" fn vr_result_to_string(res: Result) -> *const c_char {
-    res.name_with_terminator().as_ptr().cast()
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::ffi::CStr;
 
     #[test]
     fn test_merge() {
@@ -120,13 +105,6 @@ mod test {
 
         for res in [Result::Fail, Result::Skip, Result::Pass] {
             assert_eq!(&res.to_string(), res.name());
-
-            // SAFETY: We know the pointer is null terminated and has
-            // a static lifetime.
-            let c_name = unsafe {
-                CStr::from_ptr(vr_result_to_string(res).cast())
-            };
-            assert_eq!(res.name(), c_name.to_str().unwrap());
         }
     }
 }

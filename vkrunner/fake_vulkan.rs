@@ -128,18 +128,14 @@ impl GraphicsPipelineCreateInfo {
         let vertex_input_state = unsafe {
             &*create_info.pVertexInputState
         };
-        let bindings = unsafe {
-            std::slice::from_raw_parts(
-                vertex_input_state.pVertexBindingDescriptions,
-                vertex_input_state.vertexBindingDescriptionCount as usize,
-            ).to_owned()
-        };
-        let attribs = unsafe {
-            std::slice::from_raw_parts(
-                vertex_input_state.pVertexAttributeDescriptions,
-                vertex_input_state.vertexAttributeDescriptionCount as usize,
-            ).to_owned()
-        };
+        let bindings = vec_from_raw_parts(
+            vertex_input_state.pVertexBindingDescriptions,
+            vertex_input_state.vertexBindingDescriptionCount as usize,
+        );
+        let attribs = vec_from_raw_parts(
+            vertex_input_state.pVertexAttributeDescriptions,
+            vertex_input_state.vertexAttributeDescriptionCount as usize,
+        );
 
         GraphicsPipelineCreateInfo {
             create_info: create_info.clone(),
@@ -178,6 +174,7 @@ pub enum ClearAttachment {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Command {
     BeginRenderPass(vk::VkRenderPassBeginInfo),
     EndRenderPass,
@@ -290,6 +287,16 @@ pub struct Binding {
 pub struct Handle {
     pub freed: bool,
     pub data: HandleType,
+}
+
+fn vec_from_raw_parts<T: std::clone::Clone>(data: *const T, len: usize) -> Vec<T> {
+    if len > 0 {
+        unsafe {
+            std::slice::from_raw_parts(data, len).to_vec()
+        }
+    } else {
+        Vec::new()
+    }
 }
 
 /// A fake Vulkan driver. Note that there can only be one FakeVulkan
@@ -1529,10 +1536,10 @@ impl FakeVulkan {
             let create_info = &*create_info;
 
             *render_pass_out = fake_vulkan.add_handle(HandleType::RenderPass {
-                attachments: std::slice::from_raw_parts(
+                attachments: vec_from_raw_parts(
                     create_info.pAttachments,
                     create_info.attachmentCount as usize,
-                ).to_owned(),
+                ),
             });
         }
 
@@ -1923,10 +1930,10 @@ impl FakeVulkan {
         unsafe {
             assert_eq!((*create_info).codeSize % (u32::BITS as usize / 8), 0);
 
-            let code = Vec::from(std::slice::from_raw_parts(
+            let code = vec_from_raw_parts(
                 (*create_info).pCode,
                 (*create_info).codeSize / (u32::BITS as usize / 8),
-            ));
+            );
 
             *shader_module_out = fake_vulkan.add_handle(
                 HandleType::ShaderModule { code }
@@ -2045,10 +2052,10 @@ impl FakeVulkan {
         fake_vulkan.check_device(device);
 
         unsafe {
-            let bindings = std::slice::from_raw_parts(
+            let bindings = vec_from_raw_parts(
                 (*create_info).pBindings,
                 (*create_info).bindingCount as usize,
-            ).to_vec();
+            );
 
             *descriptor_set_layout_out = fake_vulkan.add_handle(
                 HandleType::DescriptorSetLayout { bindings }
@@ -2089,15 +2096,15 @@ impl FakeVulkan {
         fake_vulkan.check_device(device);
 
         unsafe {
-            let push_constant_ranges = std::slice::from_raw_parts(
+            let push_constant_ranges = vec_from_raw_parts(
                 (*create_info).pPushConstantRanges,
                 (*create_info).pushConstantRangeCount as usize,
-            ).to_vec();
+            );
 
-            let layouts = std::slice::from_raw_parts(
+            let layouts = vec_from_raw_parts(
                 (*create_info).pSetLayouts,
                 (*create_info).setLayoutCount as usize,
-            ).to_vec();
+            );
 
             *pipeline_layout_out = fake_vulkan.add_handle(
                 HandleType::PipelineLayout(PipelineLayoutCreateInfo {
@@ -2524,23 +2531,19 @@ impl FakeVulkan {
     ) {
         let fake_vulkan = FakeVulkan::current();
 
-        let buffers = unsafe {
-            std::slice::from_raw_parts(
-                buffers,
-                binding_count as usize,
-            )
-        }.to_owned();
+        let buffers = vec_from_raw_parts(
+            buffers,
+            binding_count as usize,
+        );
 
         for &buffer in buffers.iter() {
             fake_vulkan.check_buffer(buffer);
         }
 
-        let offsets = unsafe {
-            std::slice::from_raw_parts(
-                offsets,
-                binding_count as usize,
-            )
-        }.to_owned();
+        let offsets = vec_from_raw_parts(
+            offsets,
+            binding_count as usize,
+        );
 
         fake_vulkan.add_command(
             command_buffer,
@@ -2667,12 +2670,10 @@ impl FakeVulkan {
             }
         }).collect::<Vec<ClearAttachment>>();
 
-        let rects = unsafe {
-            std::slice::from_raw_parts(
-                rects,
-                rect_count as usize,
-            )
-        }.to_owned();
+        let rects = vec_from_raw_parts(
+            rects,
+            rect_count as usize,
+        );
 
         fake_vulkan.add_command(
             command_buffer,
@@ -2697,30 +2698,24 @@ impl FakeVulkan {
     ) {
         let fake_vulkan = FakeVulkan::current();
 
-        let memory_barriers = unsafe {
-            std::slice::from_raw_parts(
-                memory_barriers,
-                memory_barrier_count as usize,
-            )
-        }.to_owned();
+        let memory_barriers = vec_from_raw_parts(
+            memory_barriers,
+            memory_barrier_count as usize,
+        );
 
-        let buffer_memory_barriers = unsafe {
-            std::slice::from_raw_parts(
-                buffer_memory_barriers,
-                buffer_memory_barrier_count as usize,
-            )
-        }.to_owned();
+        let buffer_memory_barriers = vec_from_raw_parts(
+            buffer_memory_barriers,
+            buffer_memory_barrier_count as usize,
+        );
 
         for barrier in buffer_memory_barriers.iter() {
             fake_vulkan.check_buffer(barrier.buffer);
         }
 
-        let image_memory_barriers = unsafe {
-            std::slice::from_raw_parts(
-                image_memory_barriers,
-                image_memory_barrier_count as usize,
-            )
-        }.to_owned();
+        let image_memory_barriers = vec_from_raw_parts(
+            image_memory_barriers,
+            image_memory_barrier_count as usize,
+        );
 
         for barrier in image_memory_barriers.iter() {
             fake_vulkan.check_image(barrier.image);
@@ -2752,12 +2747,10 @@ impl FakeVulkan {
         fake_vulkan.check_image(src_image);
         fake_vulkan.check_buffer(dst_buffer);
 
-        let regions = unsafe {
-            std::slice::from_raw_parts(
-                regions,
-                region_count as usize,
-            )
-        }.to_owned();
+        let regions = vec_from_raw_parts(
+            regions,
+            region_count as usize,
+        );
 
         fake_vulkan.add_command(
             command_buffer,
@@ -2780,12 +2773,10 @@ impl FakeVulkan {
     ) {
         let fake_vulkan = FakeVulkan::current();
 
-        let values = unsafe {
-            std::slice::from_raw_parts(
-                values as *const u8,
-                size as usize,
-            )
-        }.to_owned();
+        let values = vec_from_raw_parts(
+            values as *const u8,
+            size as usize,
+        );
 
         fake_vulkan.add_command(
             command_buffer,
@@ -2810,12 +2801,10 @@ impl FakeVulkan {
     ) {
         let fake_vulkan = FakeVulkan::current();
 
-        let descriptor_sets = unsafe {
-            std::slice::from_raw_parts(
-                descriptor_sets,
-                descriptor_set_count as usize,
-            )
-        }.to_owned();
+        let descriptor_sets = vec_from_raw_parts(
+            descriptor_sets,
+            descriptor_set_count as usize,
+        );
 
         fake_vulkan.add_command(
             command_buffer,

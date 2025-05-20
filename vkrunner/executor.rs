@@ -34,7 +34,7 @@ use crate::requirements::Requirements;
 use crate::pipeline_set::{self, PipelineSet};
 use crate::tester;
 use crate::requirements;
-use std::ffi::{c_void, c_int};
+use std::ffi::c_void;
 use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -305,60 +305,6 @@ impl Executor {
             .and_then(|script| Some(self.execute_script(&script)))
             .unwrap_or(result::Result::Fail)
     }
-}
-
-#[no_mangle]
-pub extern "C" fn vr_executor_new(
-    config: *const RefCell<Config>
-) -> *mut Executor {
-    let config = unsafe { Rc::from_raw(config) };
-
-    let executor = Box::into_raw(Box::new(Executor::new(Rc::clone(&config))));
-
-    // Forget the config because we don’t want to steal the caller’s
-    // reference
-    std::mem::forget(config);
-
-    executor
-}
-
-#[no_mangle]
-pub extern "C" fn vr_executor_set_device(
-    executor: &mut Executor,
-    get_instance_proc_cb: vulkan_funcs::GetInstanceProcFunc,
-    user_data: *const c_void,
-    physical_device: vk::VkPhysicalDevice,
-    queue_family: c_int,
-    vk_device: vk::VkDevice,
-) {
-    executor.set_device(
-        get_instance_proc_cb,
-        user_data,
-        physical_device,
-        queue_family as u32,
-        vk_device,
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn vr_executor_execute(
-    executor: &mut Executor,
-    source: &Source,
-) -> result::Result {
-    executor.execute(source)
-}
-
-#[no_mangle]
-pub extern "C" fn vr_executor_execute_script(
-    executor: &mut Executor,
-    script: &Script,
-) -> result::Result {
-    executor.execute_script(script)
-}
-
-#[no_mangle]
-pub extern "C" fn vr_executor_free(executor: *mut Executor) {
-    unsafe { drop(Box::from_raw(executor)); };
 }
 
 #[cfg(test)]
