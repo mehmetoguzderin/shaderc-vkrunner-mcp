@@ -638,9 +638,20 @@ impl ShadercVkrunnerMcp {
             ) {
                 Ok(artifact) => artifact,
                 Err(e) => {
-                    let err_msg = e.to_string();
+                    let stage_name = match req.stage {
+                        ShaderStage::Vert => "Vertex",
+                        ShaderStage::Frag => "Fragment",
+                        ShaderStage::Tesc => "Tessellation Control",
+                        ShaderStage::Tese => "Tessellation Evaluation",
+                        ShaderStage::Geom => "Geometry",
+                        ShaderStage::Comp => "Compute",
+                    };
+                    
+                    let error_details = format!("{}", e);
+                    
                     return Ok(CallToolResult::success(vec![Content::text(format!(
-                        "Shader compilation failed:\n\nError:\n{err_msg}"
+                        "Shader compilation failed for {} shader:\n\nError:\n{}\n\nShader Source:\n{}\n",
+                        stage_name, error_details, req.source
                     ))]));
                 }
             };
@@ -1193,9 +1204,13 @@ impl ShadercVkrunnerMcp {
         let stderr = String::from_utf8_lossy(&vkrunner_output.stderr).to_string();
 
         let mut result_message = if vkrunner_output.status.success() {
-            format!("VkRunner execution successful.\n\nOutput:\n{stdout}\n\n")
+            format!(
+                "Shader compilation successful using shaderc-rs.\nVkRunner execution successful.\n\nOutput:\n{stdout}\n\n"
+            )
         } else {
-            format!("VkRunner execution failed.\n\nOutput:\n{stdout}\n\nError:\n{stderr}\n\n",)
+            format!(
+                "Shader compilation successful using shaderc-rs.\nVkRunner execution failed.\n\nOutput:\n{stdout}\n\nError:\n{stderr}\n\n",
+            )
         };
 
         if let Some(output_path) = &request.output_path {
