@@ -86,10 +86,10 @@ export VK_ICD_FILENAMES=$VK_ICD_FILES \n\
 export VK_DRIVER_FILES=$VK_ICD_FILES \n\
 export LIBGL_ALWAYS_SOFTWARE=1 \n\
 export GALLIUM_DRIVER=llvmpipe \n\
-if ! DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then  \n\
+if ! ps aux | grep -v grep | grep "Xvfb :99" > /dev/null; then \n\
     rm -f /tmp/.X11-unix/X99 \n\
     rm -f /tmp/.X99-lock \n\
-    Xvfb :99 -screen 0 960x540x24 & \n\
+    Xvfb :99 -screen 0 960x540x24 > /dev/null 2>&1 & \n\
 fi \n\
 export DISPLAY=:99 \n\
 export XDG_RUNTIME_DIR=/tmp/xdg-runtime-dir \n\
@@ -105,7 +105,7 @@ else \n\
 fi \n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
-RUN echo '. /usr/local/bin/setup-vulkan-env.sh' >> /etc/bash.bashrc
+
 
 COPY --from=builder /app/target/release/shaderc-vkrunner-mcp /usr/local/bin/
 COPY --from=builder /vkrunner_build/target/release/vkrunner /usr/local/bin/
