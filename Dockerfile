@@ -105,8 +105,6 @@ else \n\
 fi \n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
-
-
 COPY --from=builder /app/target/release/shaderc-vkrunner-mcp /usr/local/bin/
 COPY --from=builder /vkrunner_build/target/release/vkrunner /usr/local/bin/
 
