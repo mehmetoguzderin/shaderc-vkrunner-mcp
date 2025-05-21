@@ -74,12 +74,7 @@ mkdir -p $XDG_RUNTIME_DIR && chmod 700 $XDG_RUNTIME_DIR \n\
 
 RUN echo '#!/bin/bash \n\
 source /usr/local/bin/setup-vulkan-env.sh \n\
-if [[ "${1}" == --* ]]; then \n\
-    /usr/local/bin/shaderc-vkrunner-mcp "$@" \n\
-else \n\
-    exec "$@" \n\
-fi \n\
-' > /entrypoint.sh && chmod +x /entrypoint.sh
+exec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 RUN echo '. /usr/local/bin/setup-vulkan-env.sh' >> /etc/bash.bashrc
 
@@ -96,22 +91,15 @@ for attempt in $(seq 1 64); do \n\
 done \n\
 ' | ./entrypoint.sh bash
 
+COPY vkrunner /vkrunner
 
-WORKDIR /app
-COPY . .
-
-RUN cargo build --release && \
-    cp /app/target/release/shaderc-vkrunner-mcp /usr/local/bin/ && \
-    chmod +x /usr/local/bin/shaderc-vkrunner-mcp
-
-WORKDIR /vkrunner-build
-COPY vkrunner .
+WORKDIR /vkrunner
 
 RUN cargo build --release && \
-    cp /vkrunner-build/target/release/vkrunner /usr/local/bin/ && \
+    cp /vkrunner/target/release/vkrunner /usr/local/bin/ && \
     chmod +x /usr/local/bin/vkrunner
 
-WORKDIR /work
+WORKDIR /
 
 ENTRYPOINT ["/entrypoint.sh"]
 
