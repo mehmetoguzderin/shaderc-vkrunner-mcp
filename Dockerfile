@@ -49,15 +49,25 @@ RUN rustup component add rustfmt && \
     rustup component add rust-src && \
     rustup component add rust-analyzer
 
+RUN sh -c "pipx ensurepath" && \
+    bash -c "pipx ensurepath"
+
+RUN pipx install uv \
+    && pipx install ruff \
+    && pipx install pre-commit
+
 WORKDIR /app
 COPY . .
 
 RUN cargo build --release
 
-WORKDIR /vkrunner_build
-RUN git clone https://gitlab.freedesktop.org/mesa/vkrunner.git . && \
-    cargo build --release
+COPY vkrunner /vkrunner
 
+WORKDIR /vkrunner
+
+RUN cargo build --release && \
+    cp /vkrunner/target/release/vkrunner /usr/local/bin/ && \
+    chmod +x /usr/local/bin/vkrunner
 
 FROM ubuntu:25.04
 
@@ -106,7 +116,7 @@ fi \n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 COPY --from=builder /app/target/release/shaderc-vkrunner-mcp /usr/local/bin/
-COPY --from=builder /vkrunner_build/target/release/vkrunner /usr/local/bin/
+COPY --from=builder /usr/local/bin/vkrunner/vkrunner /usr/local/bin/
 
 WORKDIR /work
 
