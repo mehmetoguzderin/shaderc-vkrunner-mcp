@@ -116,7 +116,7 @@ fi \n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 COPY --from=builder /app/target/release/shaderc-vkrunner-mcp /usr/local/bin/
-COPY --from=builder /usr/local/bin/vkrunner/vkrunner /usr/local/bin/
+COPY --from=builder /usr/local/bin/vkrunner /usr/local/bin/
 
 WORKDIR /work
 
