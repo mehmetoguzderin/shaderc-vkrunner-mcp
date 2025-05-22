@@ -1,4 +1,4 @@
-FROM ubuntu:25.04
+FROM ubuntu:25.04 AS devcontainer
 
 ENV DEBIAN_FRONTEND=noninteractive
 
