@@ -203,7 +203,7 @@ jobs:
 
   create-manifest:
     name: Create Multi-Arch Manifest
-    needs: [prepare, build-amd64] # [build-arm64, build-riscv64, build-ppc64le]
+    needs: [prepare, build-amd64, build-arm64] # [build-riscv64, build-ppc64le]
     runs-on: ubuntu-latest
     permissions:
       contents: read
