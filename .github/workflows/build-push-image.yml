@@ -58,6 +58,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-arm64:
+    if: true # Configure hosted runner
     name: Build for arm64
     needs: prepare
     runs-on: ubuntu-latest
@@ -99,6 +100,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-riscv64:
+    if: false # Needs hosted runner
     name: Build for riscv64
     needs: prepare
     runs-on: ubuntu-latest
@@ -149,6 +151,7 @@ jobs:
       success: ${{ steps.status.outputs.success }}
 
   build-ppc64le:
+    if: false # Needs hosted runner
     name: Build for ppc64le
     needs: prepare
     runs-on: ubuntu-latest
@@ -200,7 +203,7 @@ jobs:
 
   create-manifest:
     name: Create Multi-Arch Manifest
-    needs: [prepare, build-amd64, build-arm64, build-riscv64, build-ppc64le]
+    needs: [prepare, build-amd64] # [build-arm64, build-riscv64, build-ppc64le]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -224,15 +227,15 @@ jobs:
           SHA_SOURCES="ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-${{ needs.prepare.outputs.short_sha }} ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-${{ needs.prepare.outputs.short_sha }}"
 
 
-          if [ "${{ needs.build-riscv64.outputs.success }}" == "true" ]; then
-            LATEST_SOURCES="${LATEST_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:riscv64-latest"
-            SHA_SOURCES="${SHA_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:riscv64-${{ needs.prepare.outputs.short_sha }}"
-          fi
+          # if [ "${{ needs.build-riscv64.outputs.success }}" == "true" ]; then
+          #   LATEST_SOURCES="${LATEST_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:riscv64-latest"
+          #   SHA_SOURCES="${SHA_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:riscv64-${{ needs.prepare.outputs.short_sha }}"
+          # fi
 
-          if [ "${{ needs.build-ppc64le.outputs.success }}" == "true" ]; then
-            LATEST_SOURCES="${LATEST_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:ppc64le-latest"
-            SHA_SOURCES="${SHA_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:ppc64le-${{ needs.prepare.outputs.short_sha }}"
-          fi
+          # if [ "${{ needs.build-ppc64le.outputs.success }}" == "true" ]; then
+          #   LATEST_SOURCES="${LATEST_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:ppc64le-latest"
+          #   SHA_SOURCES="${SHA_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:ppc64le-${{ needs.prepare.outputs.short_sha }}"
+          # fi
 
 
           echo "Creating latest manifest from: ${LATEST_SOURCES}"
