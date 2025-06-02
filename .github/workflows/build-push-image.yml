@@ -58,6 +58,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-arm64:
+    if: false # Wait for either nested virtualization for macOS runners or more available arm64 Ubuntu runners
     name: Build for arm64
     needs: prepare
     runs-on: macos-15
@@ -219,8 +220,14 @@ jobs:
       - name: Create and push multi-arch manifests
         run: |
 
-          LATEST_SOURCES="ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-latest ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-latest"
-          SHA_SOURCES="ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-${{ needs.prepare.outputs.short_sha }} ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-${{ needs.prepare.outputs.short_sha }}"
+          LATEST_SOURCES="ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-latest"
+          SHA_SOURCES="ghcr.io/${{ needs.prepare.outputs.repo_name }}:amd64-${{ needs.prepare.outputs.short_sha }}"
+
+
+          # if [ "${{ needs.build-arm64.outputs.success }}" == "true" ]; then
+          #   LATEST_SOURCES="${LATEST_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-latest"
+          #   SHA_SOURCES="${SHA_SOURCES} ghcr.io/${{ needs.prepare.outputs.repo_name }}:arm64-${{ needs.prepare.outputs.short_sha }}"
+          # fi
 
 
           # if [ "${{ needs.build-riscv64.outputs.success }}" == "true" ]; then
