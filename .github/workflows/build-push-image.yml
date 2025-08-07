@@ -22,7 +22,7 @@ jobs:
   build-amd64:
     name: Build for amd64
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -58,10 +58,9 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-arm64:
-    if: false # Wait for either nested virtualization for macOS runners or more available arm64 Ubuntu runners
     name: Build for arm64
     needs: prepare
-    runs-on: macos-15
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
@@ -200,7 +199,7 @@ jobs:
 
   create-manifest:
     name: Create Multi-Arch Manifest
-    needs: [prepare, build-amd64] # [build-arm64, build-riscv64, build-ppc64le]
+    needs: [prepare, build-amd64, build-arm64] # [build-riscv64, build-ppc64le]
     runs-on: ubuntu-latest
     permissions:
       contents: read
