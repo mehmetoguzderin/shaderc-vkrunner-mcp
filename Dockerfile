@@ -61,14 +61,6 @@ COPY . .
 
 RUN cargo build --release
 
-COPY vkrunner /vkrunner
-
-WORKDIR /vkrunner
-
-RUN cargo build --release && \
-    cp /vkrunner/target/release/vkrunner /usr/local/bin/ && \
-    chmod +x /usr/local/bin/vkrunner
-
 FROM ubuntu:25.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -116,7 +108,6 @@ fi \n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 COPY --from=builder /app/target/release/shaderc-vkrunner-mcp /usr/local/bin/
-COPY --from=builder /usr/local/bin/vkrunner /usr/local/bin/
 
 WORKDIR /work
 
