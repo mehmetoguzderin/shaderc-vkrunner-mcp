@@ -1,27 +1,107 @@
 use anyhow::Result;
 use clap::Parser;
-use image::codecs::pnm::PnmDecoder;
-use image::{DynamicImage, ImageError, RgbImage};
+use image::RgbImage;
 use rmcp::{
     Error as McpError, RoleServer, ServerHandler, ServiceExt, const_string, model::*, schemars,
     service::RequestContext, tool, transport::stdio,
 };
 use serde_json::json;
 use shaderc::{self, CompileOptions, Compiler, OptimizationLevel, ShaderKind};
-use std::fs::File;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::cell::RefCell;
+use std::ffi::{CStr, c_char, c_void};
+use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing_subscriber::{self, EnvFilter};
+use vkrunner::{Config, Executor, Source, inspect, result};
 
-pub fn read_and_decode_ppm_file<P: AsRef<Path>>(path: P) -> Result<RgbImage, ImageError> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    let decoder: PnmDecoder<BufReader<File>> = PnmDecoder::new(reader)?;
-    let dynamic_image = DynamicImage::from_decoder(decoder)?;
-    let rgb_image = dynamic_image.into_rgb8();
-    Ok(rgb_image)
+/// An RGB8 framebuffer captured from a VkRunner run.
+struct CapturedImage {
+    width: u32,
+    height: u32,
+    pixels: Vec<u8>,
+}
+
+/// State shared with the VkRunner error and inspection callbacks. A pointer to
+/// this struct is handed to [`Config::set_user_data`], so it must outlive the
+/// [`Executor::execute`] call that uses it.
+struct RunState {
+    log: String,
+    image: Option<CapturedImage>,
+    capture_image: bool,
+}
+
+/// Collects the diagnostic messages that VkRunner would otherwise print to
+/// stdout/stderr so they can be surfaced back through the MCP response.
+extern "C" fn vkrunner_error_cb(message: *const c_char, user_data: *mut c_void) {
+    if message.is_null() || user_data.is_null() {
+        return;
+    }
+
+    // SAFETY: `user_data` is the `RunState` pointer set via
+    // `Config::set_user_data`, which outlives the executor call, and `message`
+    // is a non-null, NUL-terminated string provided by VkRunner.
+    let state = unsafe { &mut *(user_data as *mut RunState) };
+    let message = unsafe { CStr::from_ptr(message) };
+    state.log.push_str(&message.to_string_lossy());
+    state.log.push('\n');
+}
+
+/// Captures the rendered color buffer into an in-memory RGB8 image, avoiding
+/// the intermediate PPM file the CLI required.
+extern "C" fn vkrunner_inspect_cb(data: &inspect::Data, user_data: *mut c_void) {
+    if user_data.is_null() {
+        return;
+    }
+
+    // SAFETY: `user_data` is the `RunState` pointer set via
+    // `Config::set_user_data`, which outlives the executor call.
+    let state = unsafe { &mut *(user_data as *mut RunState) };
+
+    if !state.capture_image {
+        return;
+    }
+
+    let image = &data.color_buffer;
+
+    if image.width <= 0 || image.height <= 0 {
+        return;
+    }
+
+    let width = image.width as usize;
+    let height = image.height as usize;
+    let format_size = image.format.size();
+
+    let mut pixels = Vec::with_capacity(width * height * 3);
+
+    for y in 0..height {
+        // SAFETY: VkRunner guarantees the color buffer holds `height` rows that
+        // are `stride` bytes apart, each with at least `width * format_size`
+        // bytes of pixel data.
+        let row = unsafe {
+            std::slice::from_raw_parts(
+                (image.data as *const u8).add(y * image.stride),
+                width * format_size,
+            )
+        };
+
+        for x in 0..width {
+            let pixel = image
+                .format
+                .load_pixel(&row[x * format_size..(x + 1) * format_size]);
+
+            for component in &pixel[0..3] {
+                pixels.push((component.clamp(0.0, 1.0) * 255.0).round() as u8);
+            }
+        }
+    }
+
+    state.image = Some(CapturedImage {
+        width: width as u32,
+        height: height as u32,
+        pixels,
+    });
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -568,7 +648,6 @@ impl ShadercVkrunnerMcp {
         use std::fs::File;
         use std::io::{Read, Write};
         use std::path::Path;
-        use std::process::{Command, Stdio}; // Still needed for vkrunner
 
         fn io_err(e: std::io::Error) -> McpError {
             McpError::internal_error("IO operation failed", Some(json!({"error": e.to_string()})))
@@ -1179,78 +1258,88 @@ impl ShadercVkrunnerMcp {
 
         shader_test_file.flush().map_err(io_err)?;
 
-        let tmp_image_path = "/tmp/vkrunner_output.ppm";
-        if let Some(output_path) = &request.output_path {
-            if output_path.starts_with("/tmp") {
-                tmp_image_path.to_string()
-            } else {
-                format!("/tmp/{output_path}")
-            }
-        } else {
-            tmp_image_path.to_string()
-        };
-        let mut vkrunner_args = vec![shader_test_path];
+        // Execute the shader test through the vkrunner library directly rather
+        // than shelling out to the vkrunner CLI. This keeps the diagnostics in
+        // process (surfaced via the error callback) and lets us capture the
+        // rendered framebuffer straight from memory (via the inspect callback)
+        // instead of reading back an intermediate PPM file.
+        let want_image = request.output_path.is_some();
 
-        if request.output_path.is_some() {
-            vkrunner_args.push("--image");
-            vkrunner_args.push(tmp_image_path);
+        let mut run_state = Box::new(RunState {
+            log: String::new(),
+            image: None,
+            capture_image: want_image,
+        });
+        let run_state_ptr: *mut RunState = run_state.as_mut();
+
+        let config = Rc::new(RefCell::new(Config::new()));
+        {
+            let mut config = config.borrow_mut();
+            config.set_error_cb(Some(vkrunner_error_cb));
+            config.set_inspect_cb(Some(vkrunner_inspect_cb));
+            config.set_user_data(run_state_ptr.cast());
         }
 
-        let vkrunner_output = Command::new("vkrunner")
-            .args(&vkrunner_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .map_err(|e| {
-                McpError::internal_error(
-                    "Failed to run vkrunner",
-                    Some(json!({"error": e.to_string()})),
-                )
-            })?;
+        let mut executor = Executor::new(Rc::clone(&config));
+        let run_result = executor.execute(&Source::from_file(shader_test_path.into()));
 
-        let stdout = String::from_utf8_lossy(&vkrunner_output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&vkrunner_output.stderr).to_string();
+        // Drop the executor and config so that the raw pointer to `run_state`
+        // is no longer referenced anywhere before we read the captured data.
+        drop(executor);
+        drop(config);
 
-        let mut result_message = if vkrunner_output.status.success() {
-            format!(
-                "Shader compilation successful using shaderc-rs.\nVkRunner execution successful.\n\nOutput:\n{stdout}\n\n"
-            )
-        } else {
-            format!(
-                "Shader compilation successful using shaderc-rs.\nVkRunner execution failed.\n\nOutput:\n{stdout}\n\nError:\n{stderr}\n\n",
-            )
+        let run_log = std::mem::take(&mut run_state.log);
+        let captured_image = run_state.image.take();
+
+        let status_line = match run_result {
+            result::Result::Pass => "VkRunner execution successful (result: pass).",
+            result::Result::Skip => {
+                "VkRunner execution skipped (result: skip). The selected device did not meet the script's requirements."
+            }
+            result::Result::Fail => "VkRunner execution failed (result: fail).",
         };
 
+        let mut result_message =
+            format!("Shader compilation successful using shaderc-rs.\n{status_line}\n\n");
+
+        if !run_log.is_empty() {
+            result_message.push_str(&format!("Output:\n{run_log}\n"));
+        }
+
         if let Some(output_path) = &request.output_path {
-            if vkrunner_output.status.success() && Path::new(tmp_image_path).exists() {
-                match read_and_decode_ppm_file(tmp_image_path) {
-                    Ok(img) => {
-                        if let Some(parent) = Path::new(output_path).parent() {
-                            if !parent.as_os_str().is_empty() {
-                                std::fs::create_dir_all(parent).map_err(|e| {
-                                    McpError::internal_error(
-                                        "Failed to create output directory",
-                                        Some(json!({"error": e.to_string()})),
-                                    )
-                                })?;
+            if run_result != result::Result::Fail {
+                if let Some(image) = captured_image {
+                    match RgbImage::from_raw(image.width, image.height, image.pixels) {
+                        Some(img) => {
+                            if let Some(parent) = Path::new(output_path).parent() {
+                                if !parent.as_os_str().is_empty() {
+                                    std::fs::create_dir_all(parent).map_err(|e| {
+                                        McpError::internal_error(
+                                            "Failed to create output directory",
+                                            Some(json!({"error": e.to_string()})),
+                                        )
+                                    })?;
+                                }
                             }
+
+                            img.save(output_path).map_err(|e| {
+                                McpError::internal_error(
+                                    "Failed to save output image",
+                                    Some(json!({"error": e.to_string()})),
+                                )
+                            })?;
+
+                            result_message.push_str(&format!("Image saved to: {output_path}\n"));
                         }
-
-                        img.save(output_path).map_err(|e| {
-                            McpError::internal_error(
-                                "Failed to save output image",
-                                Some(json!({"error": e.to_string()})),
-                            )
-                        })?;
-
-                        result_message.push_str(&format!("Image saved to: {output_path}\n"));
+                        None => {
+                            result_message.push_str(
+                                "Failed to construct output image from framebuffer data.\n",
+                            );
+                        }
                     }
-                    Err(e) => {
-                        result_message.push_str(&format!("Failed to convert output image: {e}\n"));
-                    }
+                } else {
+                    result_message.push_str("No output image was generated by VkRunner.\n");
                 }
-            } else if vkrunner_output.status.success() {
-                result_message.push_str("No output image was generated by VkRunner.\n");
             }
         }
 

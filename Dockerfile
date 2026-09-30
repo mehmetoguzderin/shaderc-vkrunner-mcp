@@ -96,16 +96,6 @@ for attempt in $(seq 1 64); do \n\
 done \n\
 ' | /entrypoint.sh bash
 
-COPY vkrunner /vkrunner
-
-WORKDIR /vkrunner
-
-RUN cargo build --release && \
-    cp /vkrunner/target/release/vkrunner /usr/local/bin/ && \
-    chmod +x /usr/local/bin/vkrunner
-
-WORKDIR /
-
 ENTRYPOINT ["/entrypoint.sh"]
 
 CMD ["bash"]
@@ -169,7 +159,6 @@ fi \n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 COPY --from=builder /app/target/release/shaderc-vkrunner-mcp /usr/local/bin/
-COPY --from=builder /usr/local/bin/vkrunner /usr/local/bin/
 
 WORKDIR /work
 
