@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y \
     sudo \
     unzip \
     vulkan-tools \
+    waypipe \
     wget \
     x11-utils \
     xvfb \
@@ -62,14 +63,18 @@ export VK_ICD_FILENAMES=$VK_ICD_FILES \n\
 export VK_DRIVER_FILES=$VK_ICD_FILES \n\
 export LIBGL_ALWAYS_SOFTWARE=1 \n\
 export GALLIUM_DRIVER=llvmpipe \n\
-if ! DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then  \n\
-    rm -f /tmp/.X11-unix/X99 \n\
-    rm -f /tmp/.X99-lock \n\
-    Xvfb :99 -screen 0 960x540x24 & \n\
-fi \n\
-export DISPLAY=:99 \n\
-export XDG_RUNTIME_DIR=/tmp/xdg-runtime-dir \n\
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp/xdg-runtime-dir} \n\
 mkdir -p $XDG_RUNTIME_DIR && chmod 700 $XDG_RUNTIME_DIR \n\
+if [ -n "$WAYLAND_DISPLAY" ] || [ -n "$DISPLAY" ]; then \n\
+    : # Reuse the display forwarded from the host (X11 forwarding or Waypipe) \n\
+else \n\
+    if ! DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then \n\
+        rm -f /tmp/.X11-unix/X99 \n\
+        rm -f /tmp/.X99-lock \n\
+        Xvfb :99 -screen 0 960x540x24 & \n\
+    fi \n\
+    export DISPLAY=:99 \n\
+fi \n\
 ' > /usr/local/bin/setup-vulkan-env.sh && chmod +x /usr/local/bin/setup-vulkan-env.sh
 
 RUN echo '#!/bin/bash \n\
