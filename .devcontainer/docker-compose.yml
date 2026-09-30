@@ -4,9 +4,16 @@ services:
   app:
     build:
       context: ..
-      dockerfile: .devcontainer/Dockerfile
+      dockerfile: Dockerfile
+      target: devcontainer
     volumes:
       - ..:/workspace:cached
+      # To forward windows to a Linux host via X11, uncomment the next line,
+      # add `- DISPLAY=${DISPLAY}` under `environment`, and run `xhost +local:root`
+      # on the host. See the "Interactive Display Forwarding" section of README.adoc.
+      # - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    # environment:
+    #   - DISPLAY=${DISPLAY}
     command: sleep infinity
     # Keep the container running
     tty: true
