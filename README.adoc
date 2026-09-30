@@ -189,7 +189,7 @@ To drive the container from another machine, SSH into the host with forwarding e
 
 === Development Environment
 
-After cloning, it is also possible to use Devcontainer for a productive development experience. This environment includes everything needed to iterate on codebase with utilities for Vulkan, screenshotting virtual framebuffer, etc. and development of this repo was bascally done there. Even for non-development purposes, it is recommended to try the development environment.
+After cloning, it is also possible to use Devcontainer for a productive development experience. This environment includes everything needed to iterate on codebase with utilities for Vulkan, screenshotting virtual framebuffer, etc. and development of this repo was basically done there. Even for non-development purposes, it is recommended to try the development environment.
 
 The devcontainer is headless by default, but it can forward windows to your host. See <<display-forwarding>> for the details; `.devcontainer/docker-compose.yml` contains commented mounts to enable X11 forwarding.
 
