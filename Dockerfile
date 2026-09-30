@@ -89,7 +89,7 @@ for attempt in $(seq 1 64); do \n\
     fi \n\
     sleep 0.1 \n\
 done \n\
-' | ./entrypoint.sh bash
+' | /entrypoint.sh bash
 
 COPY vkrunner /vkrunner
 
