@@ -4,7 +4,8 @@ services:
   app:
     build:
       context: ..
-      dockerfile: .devcontainer/Dockerfile
+      dockerfile: Dockerfile
+      target: devcontainer
     volumes:
       - ..:/workspace:cached
       # To forward windows to a Linux host via X11, uncomment the next line,
